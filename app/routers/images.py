@@ -95,5 +95,5 @@ async def get_image(image_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.get("/images/{user_id}")
 async def get_user_images(user_id: int, db: AsyncSession = Depends(get_db)):
-    images = await db.execute(select(ImageModel).filter(ImageModel.user_id == user_id))
-    return images.scalars().all()
+    images = await db.execute(select(ImageModel.id,ImageModel.status).filter(ImageModel.user_id == user_id))
+    return images.all()
