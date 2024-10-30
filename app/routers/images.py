@@ -96,4 +96,4 @@ async def get_image(image_id: int, db: AsyncSession = Depends(get_db)):
 @router.get("/images/{user_id}")
 async def get_user_images(user_id: int, db: AsyncSession = Depends(get_db)):
     images = await db.execute(select(ImageModel.id,ImageModel.status).filter(ImageModel.user_id == user_id))
-    return images.all()
+    return  [{'id': row[0], 'status': row[1]} for row in images]
