@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload</title>
+    <style>
+        #resultImage {
+            max-width: 500px; /* Встановлення максимального розміру */
+            max-height: 500px; /* Встановлення максимального розміру */
+            display: none; /* Сховати до отримання зображення */
+        }
+    </style>
+</head>
+<body>
+    <h1>Завантажити зображення</h1>
+    <input type="file" id="fileInput" accept="image/*">
+    <select id="filterSelect">
+        <option value="grayscale">Чорно-біле</option>
+        <option value="sepia">Сепія</option>
+        <option value="invert">Інверсія</option>
+        <option value="none">Без фільтру</option>
+    </select>
+    <button id="uploadButton">Завантажити</button>
+    
+    <h2 id="statusMessage"></h2>
+    <img id="selectedImage" alt="Selected" style="max-width: 500px; max-height: 500px; display: none;">
+    <img id="resultImage" alt="Result" style="display: none;">
+
+    <script>
+        const fileInput = document.getElementById("fileInput");
+        const selectedImage = document.getElementById("selectedImage");
+
+        fileInput.addEventListener("change", (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                selectedImage.src = url;
+                selectedImage.style.display = "block"; // Показати вибране зображення
+            }
+        });
+
+        document.getElementById("uploadButton").addEventListener("click", async () => {
+            const filterSelect = document.getElementById("filterSelect");
+            const statusMessage = document.getElementById("statusMessage");
+
+            if (fileInput.files.length === 0) {
+                alert("Будь ласка, виберіть зображення для завантаження.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            formData.append("filter_type", filterSelect.value);
+
+            const response = await fetch("http://127.0.0.1:8000/upload_image", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                const imageId = result.image_id;
+                statusMessage.textContent = "Обробка зображення розпочата. ID: " + imageId;
+
+                // Запустити таймер для перевірки статусу
+                const checkStatusInterval = setInterval(async () => {
+                    const statusResponse = await fetch(`http://127.0.0.1:8000/check_status/${imageId}`);
+                    const statusResult = await statusResponse.json();
+
+                    if (statusResult.status === "completed") {
+                        clearInterval(checkStatusInterval);
+                        // Отримати зображення
+                        const imageResponse = await fetch(`http://127.0.0.1:8000/get_image/${imageId}`);
+                        if (imageResponse.ok) {
+                            const blob = await imageResponse.blob();
+                            const url = URL.createObjectURL(blob);
+                            const resultImage = document.getElementById("resultImage");
+                            resultImage.src = url;
+                            resultImage.style.display = "block";
+                            statusMessage.textContent = "Обробка завершена! ID: " + imageId;
+                        } else {
+                            statusMessage.textContent = "Не вдалося отримати оброблене зображення.";
+                        }
+                    } else {
+                        statusMessage.textContent = "Статус обробки: " + statusResult.status;
+                    }
+                }, 2000); // перевірка кожні 2 секунди
+            } else {
+                const errorResult = await response.json();
+                statusMessage.textContent = "Помилка: " + errorResult.detail;
+            }
+        });
+    </script>
+</body>
+</html>
